@@ -3,7 +3,7 @@ import websockets
 import json
 import os
 
-rooms = {}   # passcode -> set of websockets
+rooms = {}
 
 async def handler(ws):
     room = None
@@ -11,7 +11,6 @@ async def handler(ws):
         async for msg in ws:
             data = json.loads(msg)
 
-            # first message must be join
             if data["type"] == "join":
                 room = data["room"]
 
@@ -25,12 +24,20 @@ async def handler(ws):
                 if room is None:
                     continue
 
-                for client in list(rooms.get(room, [])):
-                    if client.open:
+                dead = []
+
+                for client in rooms.get(room, set()):
+                    try:
                         await client.send(msg)
+                    except:
+                        dead.append(client)
+
+                for d in dead:
+                    rooms[room].discard(d)
 
     except websockets.exceptions.ConnectionClosed:
         pass
+
     finally:
         if room and room in rooms:
             rooms[room].discard(ws)
@@ -40,8 +47,10 @@ async def handler(ws):
 
 async def main():
     port = int(os.environ.get("PORT", 8000))
+
     async with websockets.serve(handler, "0.0.0.0", port):
-        await asyncio.Future()  # run forever
+        print("WebSocket relay running on port", port)
+        await asyncio.Future()
 
 
 if __name__ == "__main__":
