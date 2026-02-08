@@ -7,8 +7,12 @@ rooms = {}
 
 async def handler(ws):
     room = None
+    print("Client connected")
+
     try:
         async for msg in ws:
+            print("Received raw:", msg)
+
             data = json.loads(msg)
 
             if data["type"] == "join":
@@ -18,11 +22,12 @@ async def handler(ws):
                     rooms[room] = set()
 
                 rooms[room].add(ws)
+
+                print("Client joined room:", room, "count:", len(rooms[room]))
                 continue
 
             if data["type"] == "chat":
-                if room is None:
-                    continue
+                print("Broadcasting to room:", room)
 
                 dead = []
 
@@ -35,10 +40,12 @@ async def handler(ws):
                 for d in dead:
                     rooms[room].discard(d)
 
-    except websockets.exceptions.ConnectionClosed:
-        pass
+    except Exception as e:
+        print("Handler error:", e)
 
     finally:
+        print("Client disconnected")
+
         if room and room in rooms:
             rooms[room].discard(ws)
             if not rooms[room]:
